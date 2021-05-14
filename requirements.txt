@@ -1,0 +1,6 @@
+numpy
+python-binance
+backtrader
+TA-Lib
+websocket
+datetime
