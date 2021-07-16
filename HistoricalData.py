@@ -1,37 +1,58 @@
-import Config, csv
 from binance.client import Client
+import Config
+import csv
+from Database import DatabaseManager
 
-
-Main_Key = Config.API_Key
-Secret_Key = Config.API_Secret
+# Insert the required parameters to get your symbol historical data -----
+API_Keys = Config.api_keys('test')
 Symbol = "ALGOUSDT"
+Time_Frame = '15M'
 From_Date = "1 Jan, 2020"
-To_Date = "7 May, 2021"
+To_Date = "1 Jan, 2021"
 
 
-Binance_Client = Client(Main_Key, Secret_Key)
-print("logged In")
+# Log into Binance API --------------------------------------------------
+Binance_Client = Client(API_Keys['key'], API_Keys['secret'])
+print("logged In to your Binance account.")
 
-def Database_Maker(filename, symbol, timeframe, fromdate, todate):
 
-    Time_Frames = {'1M':Client.KLINE_INTERVAL_1MINUTE,
-                    '5M':Client.KLINE_INTERVAL_5MINUTE,
-                    '15M':Client.KLINE_INTERVAL_15MINUTE,
-                    '1H':Client.KLINE_INTERVAL_1HOUR,
-                    '4H':Client.KLINE_INTERVAL_4HOUR,
-                    '1D':Client.KLINE_INTERVAL_1DAY          
-                }
-    kline_maker = Binance_Client.get_historical_klines(symbol, Time_Frames[timeframe], fromdate, todate)
-    CSVfile = open('data\{}.csv'.format(filename), 'w', newline='') 
-    kline_Writer = csv.writer(CSVfile, delimiter=',')
-    for kline in kline_maker:
-        kline[0] = kline[0] / 1000
-        kline_Writer.writerow(kline)
+def get_data(symbol, timeframe, fromdate, todate):
+    """Function for fetching data from Binance API """
+    time_frames = {'1M': Client.KLINE_INTERVAL_1MINUTE,
+                   '5M': Client.KLINE_INTERVAL_5MINUTE,
+                   '15M': Client.KLINE_INTERVAL_15MINUTE,
+                   '1H': Client.KLINE_INTERVAL_1HOUR,
+                   '4H': Client.KLINE_INTERVAL_4HOUR,
+                   '1D': Client.KLINE_INTERVAL_1DAY
+                   }
+    klines = Binance_Client.get_historical_klines(symbol, time_frames[timeframe], fromdate, todate)
+    for kline in klines:
+        kline.insert(0, timeframe)
+        kline.insert(0, symbol)
+        kline[2] = kline[2] / 1000
+        kline[8] = kline[8] / 1000
+    return klines
+
+
+def into_CSVfile(data):
+    """Write data into CSV file"""
+    filename = data[0][0] + '_klines_' + data[0][1]
+    CSVfile = open('data\{}.csv'.format(filename), 'w', newline='')
+    kline_writer = csv.writer(CSVfile, delimiter=',')
+    for kline in data:
+        kline_writer.writerow(kline)
     CSVfile.close()
+    return print('Your CSV file {} has been created.'.format(filename))
 
-    return print('Database for {} has been updated.'.format(filename))
 
-Database_Maker("klines_15M", Symbol, '15M', From_Date, To_Date)
-Database_Maker("klines_1H", Symbol, '1H', From_Date, To_Date)
-Database_Maker("klines_4H", Symbol, '4H', From_Date, To_Date)
-Database_Maker("klines_1D", Symbol, '1D', From_Date, To_Date)
+if __name__ == '__main__':
+    # Run Function for your desired candlesticks ---------------------------
+    Data = get_data(Symbol, Time_Frame, From_Date, To_Date)
+    print(Data)
+    # Export data into CSV files ------------------------------------------
+    into_CSVfile(Data)
+    # Export data into PostgreSQL database -------------------------------------------
+    dat = DatabaseManager(Config.dat_secrets())
+    # dat.drop_tables()
+    dat.create_tables()
+    dat.into_database(Data)

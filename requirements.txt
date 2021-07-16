@@ -4,3 +4,8 @@ backtrader
 TA-Lib
 websocket
 datetime
+websocket-client
+pandas
+psycopg2
+tensorflow
+matplotlib
